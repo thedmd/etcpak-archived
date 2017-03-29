@@ -4,6 +4,7 @@
 #include <math.h>
 #include <memory>
 #include <string.h>
+#include <optional>
 
 #include "Bitmap.hpp"
 #include "BlockData.hpp"
@@ -67,6 +68,8 @@ int main( int argc, char** argv )
     bool debug = false;
     bool etc2 = false;
     bool rgba = false;
+    std::optional<std::string> outPath;
+    std::optional<std::string> outAlphaPath;
 
     if( argc < 2 )
     {
@@ -86,6 +89,16 @@ int main( int argc, char** argv )
             i++;
             save = atoi( argv[i] );
             assert( ( save & 0x3 ) != 0 );
+        }
+        else if( CSTR( "-out" ) )
+        {
+            i++;
+            outPath = argv[i] ;
+        }
+        else if( CSTR( "-out-alpha" ) )
+        {
+            i++;
+            outAlphaPath = argv[i] ;
         }
         else if( CSTR( "-a" ) )
         {
@@ -181,6 +194,13 @@ int main( int argc, char** argv )
         DataProvider dp( argv[1], mipmap );
         auto num = dp.NumberOfParts();
 
+        if( !outPath && !outAlphaPath )
+        {
+            outPath = "out.pvr";
+            if( alpha && dp.Alpha() )
+                outAlphaPath = "outa.pvr";
+        }
+
         BlockData::Type type;
         if( etc2 )
         {
@@ -198,11 +218,11 @@ int main( int argc, char** argv )
             type = BlockData::Etc1;
         }
 
-        auto bd = std::make_shared<BlockData>( "out.pvr", dp.Size(), mipmap, type );
+        auto bd = std::make_shared<BlockData>( outPath->c_str(), dp.Size(), mipmap, type );
         BlockDataPtr bda;
-        if( alpha && dp.Alpha() && !rgba )
+        if( alpha && dp.Alpha() && !rgba && outAlphaPath )
         {
-            bda = std::make_shared<BlockData>( "outa.pvr", dp.Size(), mipmap, type );
+            bda = std::make_shared<BlockData>( outAlphaPath->c_str(), dp.Size(), mipmap, type );
         }
 
         if( bda )
@@ -265,12 +285,30 @@ int main( int argc, char** argv )
 
         if( save & 0x2 )
         {
-            auto out = bd->Decode();
-            out->Write( "out.png" );
-            if( bda )
+            auto makePngOutPath = [](std::optional<std::string> path) -> std::optional<std::string>
+            {
+                if( !path )
+                    return std::nullopt;
+
+                auto separator = path->find_last_of('.');
+                if( separator != std::string::npos )
+                    return path->substr(0, separator) + ".png";
+                else
+                    return *path + ".png";
+            };
+
+            auto pngOutPath = makePngOutPath(outPath);
+            auto pngOutAlphaPath = makePngOutPath(outAlphaPath);
+
+            if( pngOutPath )
+            {
+                auto out = bd->Decode();
+                out->Write( pngOutPath->c_str() );
+            }
+            if( bda && pngOutAlphaPath )
             {
                 auto outa = bda->Decode();
-                outa->Write( "outa.png" );
+                outa->Write( pngOutAlphaPath->c_str() );
             }
         }
 
