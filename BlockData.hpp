@@ -22,8 +22,14 @@ public:
         Etc2_RGBA,
     };
 
+    enum Container
+    {
+        PVR,
+        PKM,
+    };
+
     BlockData( const char* fn );
-    BlockData( const char* fn, const v2i& size, bool mipmap, Type type );
+    BlockData( const char* fn, const v2i& size, bool mipmap, Type type, Container container = PVR );
     BlockData( const v2i& size, bool mipmap, Type type );
     ~BlockData();
 

@@ -74,7 +74,17 @@ BlockData::BlockData( const char* fn )
     }
 }
 
-static uint8_t* OpenForWriting( const char* fn, size_t len, const v2i& size, FILE** f, int levels, BlockData::Type type )
+static size_t ContainerHeaderSize( BlockData::Container format )
+{
+    switch (format)
+    {
+        default:
+        case BlockData::Container::PVR: return 52;
+        case BlockData::Container::PKM: return 16;
+    }
+}
+
+static uint8_t* OpenForWritingPVR( const char* fn, size_t len, const v2i& size, FILE** f, int levels, BlockData::Type type )
 {
     *f = fopen( fn, "wb+" );
     assert( *f );
@@ -117,6 +127,55 @@ static uint8_t* OpenForWriting( const char* fn, size_t len, const v2i& size, FIL
     return ret;
 }
 
+static uint8_t* OpenForWritingPKM( const char* fn, size_t len, const v2i& size, FILE** f, int levels, BlockData::Type type )
+{
+    if ( levels > 1 )
+        return nullptr;
+
+    *f = fopen( fn, "wb+" );
+    assert( *f );
+    fseek( *f, len - 1, SEEK_SET );
+    const char zero = 0;
+    fwrite( &zero, 1, 1, *f );
+    fseek( *f, 0, SEEK_SET );
+
+    auto ret = (uint8_t*)mmap( nullptr, len, PROT_WRITE, MAP_SHARED, fileno( *f ), 0 );
+    auto dst = (uint8_t*)ret;
+
+    uint16_t format = 0; // ETC1_RGB_NO_MIPMAPS
+
+    if( type == BlockData::Etc2_RGB )
+        format = 1;
+    else if( type == BlockData::Etc2_RGBA )
+        format = 3;
+
+    *dst++ = 'P';                   // 4 bytes magic 'PKM '
+    *dst++ = 'K';
+    *dst++ = 'M';
+    *dst++ = ' ';
+    if( type == BlockData::Etc1 )  // 2 bytes version
+    {
+        *dst++ = '1';                   // 1.0 for ETC1
+    }
+    else
+    {
+        *dst++ = '2';                   // 2.0 for ETC2
+    }
+    *dst++ = '0';
+    *dst++ = (format >> 8) & 0xFF;  // 2 bytes format (0 == ETC1_RGB_NO_MIPMAPS)
+    *dst++ = (format >> 0) & 0xFF;
+    *dst++ = (size.x >> 8) & 0xFF;  // 2 bytes extended width (big endian)
+    *dst++ = (size.x >> 0) & 0xFF;
+    *dst++ = (size.y >> 8) & 0xFF;  // 2 bytes extended height (big endian)
+    *dst++ = (size.y >> 0) & 0xFF;
+    *dst++ = (size.x >> 8) & 0xFF;  // 2 bytes original width (big endian)
+    *dst++ = (size.x >> 0) & 0xFF;
+    *dst++ = (size.y >> 8) & 0xFF;  // 2 bytes original height (big endian)
+    *dst++ = (size.y >> 0) & 0xFF;
+
+    return ret;
+}
+
 static int AdjustSizeForMipmaps( const v2i& size, int levels )
 {
     int len = 0;
@@ -132,9 +191,9 @@ static int AdjustSizeForMipmaps( const v2i& size, int levels )
     return len;
 }
 
-BlockData::BlockData( const char* fn, const v2i& size, bool mipmap, Type type )
+BlockData::BlockData( const char* fn, const v2i& size, bool mipmap, Type type, Container container )
     : m_size( size )
-    , m_dataOffset( 52 )
+    , m_dataOffset( ContainerHeaderSize( container ) )
     , m_maplen( m_size.x*m_size.y/2 )
     , m_type( type )
 {
@@ -155,7 +214,10 @@ BlockData::BlockData( const char* fn, const v2i& size, bool mipmap, Type type )
     if( type == Etc2_RGBA ) m_maplen *= 2;
 
     m_maplen += m_dataOffset;
-    m_data = OpenForWriting( fn, m_maplen, m_size, &m_file, levels, type );
+    if( container == PKM )
+        m_data = OpenForWritingPKM( fn, m_maplen, m_size, &m_file, levels, type );
+    else // if( container == PVR )
+        m_data = OpenForWritingPVR( fn, m_maplen, m_size, &m_file, levels, type );
 }
 
 BlockData::BlockData( const v2i& size, bool mipmap, Type type )

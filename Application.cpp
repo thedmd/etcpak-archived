@@ -70,6 +70,8 @@ int main( int argc, char** argv )
     bool rgba = false;
     std::optional<std::string> outPath;
     std::optional<std::string> outAlphaPath;
+    BlockData::Container container = BlockData::PVR;
+    std::string fileFormatExt = ".pvr";
 
     if( argc < 2 )
     {
@@ -89,6 +91,25 @@ int main( int argc, char** argv )
             i++;
             save = atoi( argv[i] );
             assert( ( save & 0x3 ) != 0 );
+        }
+        else if( CSTR( "-format" ) )
+        {
+            i++;
+            if( strcmp(argv[i], "pkm" ) == 0 )
+            {
+                container     = BlockData::PKM;
+                fileFormatExt = ".pkm";
+            }
+            else if( strcmp(argv[i], "pvr" ) == 0 )
+            {
+                container     = BlockData::PVR;
+                fileFormatExt = ".pvr";
+            }
+            else
+            {
+                Usage();
+                return 1;
+            }
         }
         else if( CSTR( "-out" ) )
         {
@@ -196,9 +217,9 @@ int main( int argc, char** argv )
 
         if( !outPath && !outAlphaPath )
         {
-            outPath = "out.pvr";
+            outPath = "out" + fileFormatExt;
             if( alpha && dp.Alpha() )
-                outAlphaPath = "outa.pvr";
+                outAlphaPath = "outa" + fileFormatExt;
         }
 
         BlockData::Type type;
@@ -218,11 +239,11 @@ int main( int argc, char** argv )
             type = BlockData::Etc1;
         }
 
-        auto bd = std::make_shared<BlockData>( outPath->c_str(), dp.Size(), mipmap, type );
+        auto bd = std::make_shared<BlockData>( outPath->c_str(), dp.Size(), mipmap, type, container );
         BlockDataPtr bda;
         if( alpha && dp.Alpha() && !rgba && outAlphaPath )
         {
-            bda = std::make_shared<BlockData>( outAlphaPath->c_str(), dp.Size(), mipmap, type );
+            bda = std::make_shared<BlockData>( outAlphaPath->c_str(), dp.Size(), mipmap, type, container );
         }
 
         if( bda )
