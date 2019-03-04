@@ -2,10 +2,14 @@
 (Updated 2018-07-11)
 
 ## feature/pkm
-Extras:
-* add --out argument to choose output file
-* add --out-alpha argument to save alpha only file
-* add --format [pvr|pkm] to choose output format
+Add option to control output paths of the etcpak making it possible to run multiple instances in parallel.
+
+Add support for saving ETC1 and ETC2 compressed images to PKM container.
+
+Extra arguments:
+* --out <path> argument to choose output file
+* --out-alpha <path> argument to save alpha only file
+* --format [pvr|pkm] to choose output format
 
 ## The fastest ETC compressor on the planet ##
 
