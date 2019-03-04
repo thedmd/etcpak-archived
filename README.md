@@ -1,6 +1,12 @@
 # etcpak 0.6 #
 (Updated 2018-07-11)
 
+## feature/pkm
+Extras:
+* add --out argument to choose output file
+* add --out-alpha argument to save alpha only file
+* add --format [pvr|pkm] to choose output format
+
 ## The fastest ETC compressor on the planet ##
 
 etcpak is an extremely fast [Ericsson Texture Compression](http://en.wikipedia.org/wiki/Ericsson_Texture_Compression) utility. Currently it's best suited for rapid assets preparation during development, when graphics quality is not a concern, but it's also used in production builds of applications used by millions of people.
