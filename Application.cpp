@@ -239,7 +239,11 @@ int main( int argc, char** argv )
             type = BlockData::Etc1;
         }
 
-        auto bd = std::make_shared<BlockData>( outPath->c_str(), dp.Size(), mipmap, type, container );
+        BlockDataPtr bd;
+        if( outPath )
+        {
+            bd = std::make_shared<BlockData>( outPath->c_str(), dp.Size(), mipmap, type, container );
+        }
         BlockDataPtr bda;
         if( alpha && dp.Alpha() && !rgba && outAlphaPath )
         {
@@ -252,17 +256,23 @@ int main( int argc, char** argv )
             {
                 auto part = dp.NextPart();
 
-                TaskDispatch::Queue( [part, i, &bd, &dither]()
+                if( bd )
                 {
-                    bd->Process( part.src, part.width / 4 * part.lines, part.offset, part.width, Channels::RGB, dither );
-                } );
-                TaskDispatch::Queue( [part, i, &bda]()
+                    TaskDispatch::Queue( [part, i, &bd, &dither]()
+                    {
+                        bd->Process( part.src, part.width / 4 * part.lines, part.offset, part.width, Channels::RGB, dither );
+                    } );
+                }
+                if( bda )
                 {
-                    bda->Process( part.src, part.width / 4 * part.lines, part.offset, part.width, Channels::Alpha, false );
-                } );
+                    TaskDispatch::Queue( [part, i, &bda]()
+                    {
+                        bda->Process( part.src, part.width / 4 * part.lines, part.offset, part.width, Channels::Alpha, false );
+                    } );
+                }
             }
         }
-        else
+        else if ( bd )
         {
             for( int i=0; i<num; i++ )
             {
@@ -289,11 +299,14 @@ int main( int argc, char** argv )
 
         if( stats )
         {
-            auto out = bd->Decode();
-            float mse = CalcMSE3( dp.ImageData(), *out );
-            printf( "RGB data\n" );
-            printf( "  RMSE: %f\n", sqrt( mse ) );
-            printf( "  PSNR: %f\n", 20 * log10( 255 ) - 10 * log10( mse ) );
+            if( bd )
+            {
+                auto out = bd->Decode();
+                float mse = CalcMSE3( dp.ImageData(), *out );
+                printf( "RGB data\n" );
+                printf( "  RMSE: %f\n", sqrt( mse ) );
+                printf( "  PSNR: %f\n", 20 * log10( 255 ) - 10 * log10( mse ) );
+            }
             if( bda )
             {
                 auto out = bda->Decode();
@@ -321,7 +334,7 @@ int main( int argc, char** argv )
             auto pngOutPath = makePngOutPath(outPath);
             auto pngOutAlphaPath = makePngOutPath(outAlphaPath);
 
-            if( pngOutPath )
+            if( bd && pngOutPath )
             {
                 auto out = bd->Decode();
                 out->Write( pngOutPath->c_str() );
